@@ -1,18 +1,15 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { endSession } from "@/lib/sessionClient";
 
 export function SignOutButton() {
-  const router = useRouter();
-
   async function handleSignOut() {
     await signOut(auth);
     await endSession();
-    router.replace("/login");
-    router.refresh();
+    // Full page load so no signed-in pages stay in the client router cache.
+    window.location.replace("/login");
   }
 
   return (

@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useState, type FormEvent } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { FirebaseError } from "firebase/app";
 import {
   onAuthStateChanged,
@@ -44,7 +44,6 @@ function friendlyError(error: unknown) {
 }
 
 function LoginForm() {
-  const router = useRouter();
   const next = safeNext(useSearchParams().get("next"));
 
   const [email, setEmail] = useState("");
@@ -64,14 +63,25 @@ function LoginForm() {
         }
         try {
           await startSession(user);
-          router.replace(next);
-          router.refresh();
+
+          // If we were sent straight back here moments ago, the server isn't
+          // accepting the session: show an error rather than looping.
+          const last = Number(sessionStorage.getItem("loginRedirectAt") ?? 0);
+          if (Date.now() - last < 15_000) {
+            sessionStorage.removeItem("loginRedirectAt");
+            throw new Error("Session not accepted");
+          }
+          sessionStorage.setItem("loginRedirectAt", String(Date.now()));
+
+          // Full page load: the client router may hold a prefetched redirect
+          // from /library to /login cached while signed out.
+          window.location.replace(next);
         } catch {
           setMessage({ text: "Could not start your session. Please try again.", isError: true });
           setBusy(false);
         }
       }),
-    [next, router]
+    [next]
   );
 
   async function handleSubmit(event: FormEvent) {
